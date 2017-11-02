@@ -1,8 +1,19 @@
 #include <Wire.h>;
-
+#include "Plotter.h"
 #define ADC_ADDRESS 0x10
 #define NUMBER_OF_BYTES 2 
 #define NUMBER_OF_LEVELS 4096
+#define NUMBER_OF_POINTS 5000
+#define EMPTY_BYTE B00000000
+
+// Great idea. Now I can use a float and access each byte for transmission. Shout-outs:
+// https://forum.arduino.cc/index.php?topic=246654.0
+typedef union
+{
+ float number;
+ uint8_t bytes[4];
+} FLOATUNION_t;
+
 void setup() {
 
   // Set the pull up resistor on my analog reading pin
@@ -17,7 +28,6 @@ void setup() {
   Wire.begin();
   //Begin serial transmission
   Serial.begin(9600);
-
   delay(100);
 
 // Enable internal reference
@@ -59,15 +69,12 @@ void setup() {
 
 void loop() {
   // put your main code here, to run repeatedly:
+  
+  FLOATUNION_t voltage; 
+  float LSB, MSB, voltageRaw;
+  float voltageReference = 5;
 
-  int LSB, MSB;
-  double voltageRaw, voltage;
-  double voltageReference = 5;
-
-
-  //Step 4: Read from ADC
-
-  //Request Data
+  //Request Data from ADC
   Wire.requestFrom(ADC_ADDRESS, NUMBER_OF_BYTES);
 
   if(Wire.available() <= NUMBER_OF_BYTES){
@@ -79,9 +86,13 @@ void loop() {
   voltageRaw = LSB + MSB;
 
   // Converting this to a meaningful value
-  voltage = voltageRaw * (voltageReference / NUMBER_OF_LEVELS);
+  voltage.number = voltageRaw * (voltageReference / NUMBER_OF_LEVELS);
 
-  Serial.println(voltage, 3);
-
-  delay(1000);
+  // Transmit this value over serial as a float (4 bytes)
+  Serial.print("C");
+  Serial.write(voltage.bytes[3]);
+  Serial.write(voltage.bytes[2]);
+  Serial.write(voltage.bytes[1]);
+  Serial.write(voltage.bytes[0]);
+  
 }
